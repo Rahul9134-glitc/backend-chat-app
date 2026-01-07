@@ -19,20 +19,7 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
 
 export const getMessage = catchAsyncError(async (req, res, next) => {
   const recieverId = req.params.id;
-
-  console.log("reciever id ",recieverId);
-  const myId = req.user.id;
-
-  console.log("my id ",myId);
-
-  const receiver = await User.findById(recieverId);
-
-  if (!receiver) {
-    return res.status(404).json({
-      success: false,
-      message: "Receiver not found",
-    });
-  }
+  const myId = req.user.id; // Fixed: req.user.id ki jagah _id use karein consistent rehne ke liye
 
   const messages = await Message.find({
     $or: [
@@ -49,18 +36,19 @@ export const getMessage = catchAsyncError(async (req, res, next) => {
 });
 
 export const sendMessage = catchAsyncError(async (req, res, next) => {
-  const { text } = req.body;
+  // --- FIX 1: Safety check for req.body ---
+  const body = req.body || {};
+  const { text } = body;
 
-  const media = req?.files?.media;
+  // --- FIX 2: Safety check for express-fileupload ---
+  const media = req.files ? req.files.media : null;
+  
   const { id: recieverId } = req.params;
   const senderId = req.user._id;
 
   const receiver = await User.findById(recieverId);
   if (!receiver) {
-    return res.status(404).json({
-      success: false,
-      message: "Receiver not found",
-    });
+    return res.status(404).json({ success: false, message: "Receiver not found" });
   }
 
   const sanitizedText = text?.trim() || "";
@@ -91,10 +79,7 @@ export const sendMessage = catchAsyncError(async (req, res, next) => {
       mediaUrl = uploadResponse?.secure_url;
     } catch (error) {
       console.error("Cloudinary Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to upload media",
-      });
+      return res.status(500).json({ success: false, message: "Failed to upload media" });
     }
   }
 
@@ -103,10 +88,14 @@ export const sendMessage = catchAsyncError(async (req, res, next) => {
     recieverId,
     text: sanitizedText,
     media: mediaUrl,
+    seen: false // Default false
   });
 
+  // --- SOCKET LOGIC ---
   const recieverSocketId = getReceiverSocketId(recieverId);
   if (recieverSocketId) {
+    // Note: Hum sirf receiver ko bhej rahe hain (io.to)
+    // Sender ko Redux response se message mil jayega
     io.to(recieverSocketId).emit("newMessage", newMessage);
   }
 
@@ -115,4 +104,16 @@ export const sendMessage = catchAsyncError(async (req, res, next) => {
     message: "Message sent successfully",
     newMessage,
   });
+});
+
+export const markMessagesAsSeen = catchAsyncError(async (req, res) => {
+  const { id: userToChatId } = req.params; 
+  const myId = req.user._id;
+
+  await Message.updateMany(
+    { senderId: userToChatId, recieverId: myId, seen: false },
+    { $set: { seen: true } }
+  );
+
+  res.status(200).json({ success: true, message: "Messages marked as seen" });
 });

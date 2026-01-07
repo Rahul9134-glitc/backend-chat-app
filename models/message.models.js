@@ -13,6 +13,11 @@ const messageSchema = mongoose.Schema(
     },
     text: String,
     media: String,
+
+    seen: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

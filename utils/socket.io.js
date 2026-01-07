@@ -22,6 +22,35 @@ export function initSocket(server) {
 
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
+
+    // 1. Listen for when a user starts typing
+    socket.on("typing", ({ receiverId }) => {
+        const receiverSocketId = getReceiverSocketId(receiverId);
+        if (receiverSocketId) {
+            // Send 'displayTyping' ONLY to the specific receiver
+            socket.to(receiverSocketId).emit("displayTyping", { senderId: userId });
+        }
+    });
+
+
+    socket.on("stopTyping", ({ receiverId }) => {
+        const receiverSocketId = getReceiverSocketId(receiverId);
+        if (receiverSocketId) {
+            // Send 'hideTyping' ONLY to the specific receiver
+            socket.to(receiverSocketId).emit("hideTyping");
+        }
+    });
+
+
+    socket.on("markAsSeen", async ({ senderId, recieverId }) => {
+    const senderSocketId = userSocketMap[senderId];
+    
+    if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesSeenByReceiver", { recieverId });
+    }
+});
+
+
     socket.on("disconnect", () => {
       if (userId && userId !== "undefined") {
         delete userSocketMap[userId];

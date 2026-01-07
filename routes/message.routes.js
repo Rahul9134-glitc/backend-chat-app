@@ -3,6 +3,7 @@ import {
   getAllUsers,
   getMessage,
   sendMessage,
+  markMessagesAsSeen
 } from "../controllers/message.controllers.js";
 
 import {isAuthenticated} from "../middleware/auth.middleware.js"
@@ -13,6 +14,7 @@ const router = express.Router();
 router.route("/users").get(isAuthenticated,getAllUsers)
 router.route("/:id").get( isAuthenticated , getMessage)
 router.route("/send/:id").post(isAuthenticated , sendMessage)
+router.route("/seen/:id").post(isAuthenticated , markMessagesAsSeen)
 
 
 export default router;
