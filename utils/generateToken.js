@@ -8,7 +8,7 @@ export const generateToken = async (user, message, statusCode, res) => {
     const cookieOptions = {
         httpOnly: true, 
         maxAge: Number(process.env.COOKIE_EXPIRE) * 24 * 60 * 60 * 1000, 
-        sameSite: "strict",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : 'lax',
         secure: process.env.NODE_ENV === "production", 
     };
 
