@@ -12,7 +12,11 @@ const messageSchema = mongoose.Schema(
       required: true,
     },
     text: String,
-    media: String,
+    
+    media: {
+      url: String,
+      public_id: String,
+    },
 
     seen: {
       type: Boolean,
