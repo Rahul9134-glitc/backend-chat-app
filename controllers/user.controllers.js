@@ -172,3 +172,31 @@ export const updateProfile = catchAsyncError(async (req, res, next) => {
     user,
   });
 });
+
+
+export const searchNewUsers = catchAsyncError(async (req, res, next) => {
+  const { query } = req.query; 
+  const loggedInUserId = req.user._id;
+
+  if (!query || query.trim() === "") {
+    return res.status(200).json({
+      success: true,
+      users: []
+    });
+  }
+
+  const users = await User.find({
+    _id: { $ne: loggedInUserId }, 
+    $or: [
+      { fullname: { $regex: query, $options: "i" } }, 
+      { email: { $regex: query, $options: "i" } }  
+    ]
+  })
+  .select("fullName email avatar") 
+  .limit(10); 
+
+  res.status(200).json({
+    success: true,
+    users
+  });
+});

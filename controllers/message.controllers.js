@@ -7,15 +7,13 @@ import { getReceiverSocketId, io } from "../utils/socket.io.js";
 export const getAllUsers = catchAsyncError(async (req, res, next) => {
   const loggedInUserId = req.user._id;
 
-  // 1. Aggregation Pipeline: Yeh find karega har user ke saath aapka last message kab hua
   const usersWithLastMessage = await User.aggregate([
-    // Apne aap ko list se hatao
     { $match: { _id: { $ne: loggedInUserId } } },
-
-    // Har user ke liye messages collection se last message dundo
+    
+    // 1. Latest message fetch karna
     {
       $lookup: {
-        from: "messages", // Aapke collection ka naam (model name 'Message' hai toh 'messages' hoga)
+        from: "messages",
         let: { userId: "$_id" },
         pipeline: [
           {
@@ -28,32 +26,55 @@ export const getAllUsers = catchAsyncError(async (req, res, next) => {
               }
             }
           },
-          { $sort: { createdAt: -1 } }, // Latest message sabse upar
-          { $limit: 1 } // Sirf 1 message chahiye check karne ke liye
+          { $sort: { createdAt: -1 } },
+          { $limit: 1 }
         ],
         as: "lastConversation"
       }
     },
 
-    // Password field ko hatao
-    { $project: { password: 0 } },
-
-    // Sorting Logic: Jisne message kiya uska time lo, warna 0 (purane users niche)
+    // 2. Unread messages count karna (Jo samne wale ne bheje par maine nahi dekhe)
     {
-      $addFields: {
-        lastMessageTime: {
-          $ifNull: [{ $arrayElemAt: ["$lastConversation.createdAt", 0] }, new Date(0)]
-        }
+      $lookup: {
+        from: "messages",
+        let: { userId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$senderId", "$$userId"] },
+                  { $eq: ["$recieverId", loggedInUserId] },
+                  { $eq: ["$seen", false] }
+                ]
+              }
+            }
+          }
+        ],
+        as: "unreadMessages"
       }
     },
 
-    // Final Sort: Latest time wala user sabse upar
+    // Sirf wahi users dikhao jinse baat hui hai (Active Chats)
+    { $match: { "lastConversation": { $ne: [] } } },
+
+    { $project: { password: 0 } },
+
+    // 3. Data ko clean format mein convert karna
+    {
+      $addFields: {
+        lastMessage: { $arrayElemAt: ["$lastConversation", 0] },
+        unreadCount: { $size: "$unreadMessages" },
+        lastMessageTime: { $arrayElemAt: ["$lastConversation.createdAt", 0] }
+      }
+    },
+
     { $sort: { lastMessageTime: -1 } }
   ]);
 
   return res.status(200).json({
     success: true,
-    message: "Users fetched successfully with recent sorting",
+    message: "Active chats fetched successfully",
     users: usersWithLastMessage,
   });
 });
