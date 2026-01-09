@@ -179,6 +179,56 @@ export const markMessagesAsSeen = catchAsyncError(async (req, res) => {
 });
 
 
+export const addReaction = catchAsyncError(async (req, res) => {
+  const { messageId, emoji } = req.body;
+  const userId = req.user._id;
+
+  const message = await Message.findById(messageId);
+  if (!message) {
+    return res.status(404).json({ success: false, message: "Message not found" });
+  }
+
+  const existingIndex = message.reactions.findIndex(
+    (r) => r.userId.toString() === userId.toString()
+  );
+
+  let actionType = ""; 
+
+  if (existingIndex > -1) {
+    if (message.reactions[existingIndex].emoji === emoji) {
+      message.reactions.splice(existingIndex, 1);
+      actionType = "REMOVED";
+    } else {
+      message.reactions[existingIndex].emoji = emoji;
+      actionType = "UPDATED";
+    }
+  } else {
+    message.reactions.push({ emoji, userId });
+    actionType = "ADDED";
+  }
+
+  await message.save();
+
+  const receiverId = message.senderId.equals(userId) ? message.recieverId : message.senderId;
+  const receiverSocketId = getReceiverSocketId(receiverId);
+  
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("reactionUpdate", { 
+      messageId, 
+      emoji: actionType === "REMOVED" ? null : emoji, 
+      userId,
+      actionType 
+    });
+  }
+
+  res.status(200).json({ 
+    success: true, 
+    message: "Reaction processed", 
+    data: { messageId, reactions: message.reactions } 
+  });
+});
+
+
 export const deleteMessage = async (req, res) => {
   try {
     const { id } = req.params; 

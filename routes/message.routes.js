@@ -4,7 +4,8 @@ import {
   getMessage,
   sendMessage,
   markMessagesAsSeen,
-  deleteMessage
+  deleteMessage,
+  addReaction
 } from "../controllers/message.controllers.js";
 
 import {isAuthenticated} from "../middleware/auth.middleware.js"
@@ -17,6 +18,7 @@ router.route("/:id").get( isAuthenticated , getMessage)
 router.route("/send/:id").post(isAuthenticated , sendMessage)
 router.route("/seen/:id").post(isAuthenticated , markMessagesAsSeen)
 router.route("/delete/:id").delete(isAuthenticated ,deleteMessage )
+router.route("/react").post(isAuthenticated , addReaction)
 
 
 export default router;

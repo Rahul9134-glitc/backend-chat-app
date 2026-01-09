@@ -61,6 +61,17 @@ export function initSocket(server) {
         io.emit("getOnlineUsers", Object.keys(userSocketMap));
       }
     });
+
+    socket.on("sendReaction", ({ messageId, emoji, receiverId, senderId }) => {
+      const receiverSocketId = getReceiverSocketId(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("reactionUpdate", {
+          messageId,
+          emoji,
+          senderId, 
+        });
+      }
+    });
   });
 
   return io;

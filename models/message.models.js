@@ -12,7 +12,16 @@ const messageSchema = mongoose.Schema(
       required: true,
     },
     text: String,
-    
+    reactions: [
+      {
+        emoji: String, 
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      },
+    ],
+
     media: {
       url: String,
       public_id: String,
